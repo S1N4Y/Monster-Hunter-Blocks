@@ -45,15 +45,16 @@ public class RoyalLudrothEntity extends HostileEntity implements GeoEntity {
 
     public static DefaultAttributeContainer.Builder createRoyalLudrothAttributes() {
         return HostileEntity.createHostileAttributes()
-                .add(EntityAttributes.GENERIC_MAX_HEALTH, 50.0D)
+                .add(EntityAttributes.GENERIC_MAX_HEALTH, 100.0D)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.3D)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6.0D)
-                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0D); // Champ de vision augmenté
+                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 9.0D)
+                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0D) // Champ de vision augmenté
+                .add(EntityAttributes.GENERIC_SCALE, 3.0D);
     }
 
     @Override
     protected void initGoals() {
-        this.goalSelector.add(1, new MeleeAttackGoal(this, 1.5D, true));
+        this.goalSelector.add(1, new MeleeAttackGoal(this, 2.5D, true));
         this.goalSelector.add(2, new SwimAroundGoal(this, 1.0D, 10)); // Patrouille aquatique
         this.goalSelector.add(3, new WanderAroundFarGoal(this, 1.0D)); // Patrouille terrestre
         this.goalSelector.add(4, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
