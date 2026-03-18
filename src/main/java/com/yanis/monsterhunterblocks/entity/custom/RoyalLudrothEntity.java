@@ -1,0 +1,175 @@
+package com.yanis.monsterhunterblocks.entity.custom;
+
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.MovementType;
+import net.minecraft.entity.ai.goal.*;
+import net.minecraft.entity.ai.pathing.EntityNavigation;
+import net.minecraft.entity.ai.pathing.PathNodeType;
+import net.minecraft.entity.attribute.DefaultAttributeContainer;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.mob.HostileEntity;
+import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import software.bernie.geckolib.animatable.GeoEntity;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.AnimatableManager;
+import software.bernie.geckolib.animation.AnimationController;
+import software.bernie.geckolib.animation.AnimationState;
+import software.bernie.geckolib.animation.RawAnimation;
+import software.bernie.geckolib.animation.PlayState;
+import software.bernie.geckolib.util.GeckoLibUtil;
+
+public class RoyalLudrothEntity extends HostileEntity implements GeoEntity {
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+    public int deathAnimationTimer = 0;
+
+    public RoyalLudrothEntity(EntityType<? extends HostileEntity> entityType, World world) {
+        super(entityType, world);
+        this.setPathfindingPenalty(PathNodeType.WATER, 0.0F);
+        this.setPathfindingPenalty(PathNodeType.WATER_BORDER, 0.0F);
+
+        this.moveControl = new net.minecraft.entity.ai.control.MoveControl(this) {
+            @Override
+            public void tick() {
+                if (this.entity.isTouchingWater()
+                        && this.state == net.minecraft.entity.ai.control.MoveControl.State.MOVE_TO) {
+                    double dx = this.targetX - this.entity.getX();
+                    double dy = this.targetY - this.entity.getY();
+                    double dz = this.targetZ - this.entity.getZ();
+                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance > 0.001D) {
+                        this.entity.setVelocity(this.entity.getVelocity().add(0.0D, (dy / distance) * 0.02D, 0.0D));
+                    }
+                }
+                super.tick();
+            }
+        };
+    }
+
+    @Override
+    protected EntityNavigation createNavigation(World world) {
+        return new net.minecraft.entity.ai.pathing.SwimNavigation(this, world);
+    }
+
+    public static DefaultAttributeContainer.Builder createRoyalLudrothAttributes() {
+        return HostileEntity.createHostileAttributes()
+                .add(EntityAttributes.GENERIC_MAX_HEALTH, 50.0D)
+                .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.3D)
+                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6.0D)
+                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0D);
+    }
+
+    @Override
+    protected void initGoals() {
+        this.goalSelector.add(1, new MeleeAttackGoal(this, 1.5D, true));
+        this.goalSelector.add(2, new SwimAroundGoal(this, 1.0D, 10));
+        this.goalSelector.add(3, new WanderAroundFarGoal(this, 1.0D));
+        this.goalSelector.add(4, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
+        this.goalSelector.add(5, new LookAroundGoal(this));
+
+        this.targetSelector.add(1, new ActiveTargetGoal<>(this, PlayerEntity.class, true));
+        this.targetSelector.add(2, new ActiveTargetGoal<>(this, AnimalEntity.class, true));
+        this.targetSelector.add(3,
+                new ActiveTargetGoal<>(this, net.minecraft.entity.mob.WaterCreatureEntity.class, true));
+    }
+
+    @Override
+    public void setTarget(@org.jetbrains.annotations.Nullable LivingEntity target) {
+        super.setTarget(target);
+        this.setAttacking(target != null);
+    }
+
+    @Override
+    public boolean cannotDespawn() {
+        return true;
+    }
+
+    @Override
+    public void travel(Vec3d movementInput) {
+        if (this.isLogicalSideForUpdatingMovement() && this.isTouchingWater()) {
+            this.updateVelocity(0.02F, movementInput);
+            this.move(MovementType.SELF, this.getVelocity());
+            this.setVelocity(this.getVelocity().multiply(0.9D));
+        } else {
+            super.travel(movementInput);
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.isInsideWaterOrBubbleColumn()) {
+            this.setAir(300);
+        }
+    }
+
+    @Override
+    public boolean isPushedByFluids() {
+        return false;
+    }
+
+    @Override
+    protected void updatePostDeath() {
+        ++this.deathAnimationTimer;
+        if (this.deathAnimationTimer >= 60) {
+            this.remove(Entity.RemovalReason.KILLED);
+        }
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "movement", 5, this::movementPredicate));
+        controllers.add(new AnimationController<>(this, "attack", 5, this::attackPredicate));
+    }
+
+    private <T extends GeoEntity> PlayState movementPredicate(AnimationState<T> event) {
+        if (this.isDead()) {
+            event.getController().setAnimation(RawAnimation.begin().thenPlayAndHold("death"));
+            return PlayState.CONTINUE;
+        }
+
+        if (this.hurtTime > 0) {
+            event.getController().setAnimation(RawAnimation.begin().thenPlay("hurt"));
+            return PlayState.CONTINUE;
+        }
+
+        boolean isMoving = event.isMoving() || this.getVelocity().horizontalLengthSquared() > 0.002D
+                || !this.getNavigation().isIdle();
+        boolean hasTarget = this.isAttacking();
+
+        if (this.isTouchingWater()) {
+            if (isMoving) {
+                event.getController().setAnimation(RawAnimation.begin().thenLoop(hasTarget ? "swimfast" : "swim"));
+            } else {
+                event.getController().setAnimation(RawAnimation.begin().thenLoop("idle"));
+            }
+            return PlayState.CONTINUE;
+        }
+
+        if (isMoving) {
+            event.getController().setAnimation(RawAnimation.begin().thenLoop(hasTarget ? "run" : "walk"));
+            return PlayState.CONTINUE;
+        }
+
+        event.getController().setAnimation(RawAnimation.begin().thenLoop("idle"));
+        return PlayState.CONTINUE;
+    }
+
+    private <T extends GeoEntity> PlayState attackPredicate(AnimationState<T> event) {
+        if (this.handSwinging && event.getController().getAnimationState().equals(AnimationController.State.STOPPED)) {
+            event.getController().forceAnimationReset();
+            event.getController().setAnimation(RawAnimation.begin().thenPlay("attack"));
+        }
+        return PlayState.CONTINUE;
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+}
