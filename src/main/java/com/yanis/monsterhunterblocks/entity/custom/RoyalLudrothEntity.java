@@ -5,6 +5,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.ai.goal.*;
+import net.minecraft.entity.ai.pathing.AmphibiousSwimNavigation;
 import net.minecraft.entity.ai.pathing.EntityNavigation;
 import net.minecraft.entity.ai.pathing.PathNodeType;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
@@ -32,28 +33,12 @@ public class RoyalLudrothEntity extends HostileEntity implements GeoEntity {
         this.setPathfindingPenalty(PathNodeType.WATER, 0.0F);
         this.setPathfindingPenalty(PathNodeType.WATER_BORDER, 0.0F);
 
-        this.moveControl = new net.minecraft.entity.ai.control.MoveControl(this) {
-            @Override
-            public void tick() {
-                if (this.entity.isTouchingWater()
-                        && this.state == net.minecraft.entity.ai.control.MoveControl.State.MOVE_TO) {
-                    double dx = this.targetX - this.entity.getX();
-                    double dy = this.targetY - this.entity.getY();
-                    double dz = this.targetZ - this.entity.getZ();
-                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                    if (distance > 0.001D) {
-                        this.entity.setVelocity(this.entity.getVelocity().add(0.0D, (dy / distance) * 0.02D, 0.0D));
-                    }
-                }
-                super.tick();
-            }
-        };
+        this.moveControl = new net.minecraft.entity.ai.control.MoveControl(this);
     }
 
     @Override
     protected EntityNavigation createNavigation(World world) {
-        return new net.minecraft.entity.ai.pathing.SwimNavigation(this, world);
+        return new AmphibiousSwimNavigation(this, world);
     }
 
     public static DefaultAttributeContainer.Builder createRoyalLudrothAttributes() {
