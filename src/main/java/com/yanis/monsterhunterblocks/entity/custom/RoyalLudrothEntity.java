@@ -3,7 +3,6 @@ package com.yanis.monsterhunterblocks.entity.custom;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
 import net.minecraft.entity.ai.goal.*;
 import net.minecraft.entity.ai.pathing.AmphibiousSwimNavigation;
 import net.minecraft.entity.ai.pathing.EntityNavigation;
@@ -13,7 +12,6 @@ import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
@@ -30,14 +28,18 @@ public class RoyalLudrothEntity extends HostileEntity implements GeoEntity {
 
     public RoyalLudrothEntity(EntityType<? extends HostileEntity> entityType, World world) {
         super(entityType, world);
+        // Annule les pénalités de pathfinding liées à l'eau
         this.setPathfindingPenalty(PathNodeType.WATER, 0.0F);
         this.setPathfindingPenalty(PathNodeType.WATER_BORDER, 0.0F);
 
-        this.moveControl = new net.minecraft.entity.ai.control.MoveControl(this);
+        // Paramètres : Entité, Rotation X max, Rotation Y max, Vitesse Eau (1.0F),
+        // Vitesse Terre (1.0F), Flottabilité
+        this.moveControl = new net.minecraft.entity.ai.control.AquaticMoveControl(this, 85, 10, 1.0F, 1.0F, true);
     }
 
     @Override
     protected EntityNavigation createNavigation(World world) {
+        // Navigation hybride (terre + 3D Eau)
         return new AmphibiousSwimNavigation(this, world);
     }
 
@@ -46,19 +48,21 @@ public class RoyalLudrothEntity extends HostileEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 50.0D)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.3D)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6.0D)
-                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0D);
+                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0D); // Champ de vision augmenté
     }
 
     @Override
     protected void initGoals() {
         this.goalSelector.add(1, new MeleeAttackGoal(this, 1.5D, true));
-        this.goalSelector.add(2, new SwimAroundGoal(this, 1.0D, 10));
-        this.goalSelector.add(3, new WanderAroundFarGoal(this, 1.0D));
+        this.goalSelector.add(2, new SwimAroundGoal(this, 1.0D, 10)); // Patrouille aquatique
+        this.goalSelector.add(3, new WanderAroundFarGoal(this, 1.0D)); // Patrouille terrestre
         this.goalSelector.add(4, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
         this.goalSelector.add(5, new LookAroundGoal(this));
 
         this.targetSelector.add(1, new ActiveTargetGoal<>(this, PlayerEntity.class, true));
         this.targetSelector.add(2, new ActiveTargetGoal<>(this, AnimalEntity.class, true));
+        // Autorise formellement l'attaque des créatures marines (Poissons, Calmars,
+        // etc.)
         this.targetSelector.add(3,
                 new ActiveTargetGoal<>(this, net.minecraft.entity.mob.WaterCreatureEntity.class, true));
     }
@@ -75,19 +79,9 @@ public class RoyalLudrothEntity extends HostileEntity implements GeoEntity {
     }
 
     @Override
-    public void travel(Vec3d movementInput) {
-        if (this.isLogicalSideForUpdatingMovement() && this.isTouchingWater()) {
-            this.updateVelocity(0.02F, movementInput);
-            this.move(MovementType.SELF, this.getVelocity());
-            this.setVelocity(this.getVelocity().multiply(0.9D));
-        } else {
-            super.travel(movementInput);
-        }
-    }
-
-    @Override
     public void tick() {
         super.tick();
+        // Renouvellement de l'oxygène
         if (this.isInsideWaterOrBubbleColumn()) {
             this.setAir(300);
         }
