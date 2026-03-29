@@ -1,0 +1,7 @@
+{
+    "processors": [
+        {
+            "processor_type": "monster-hunter-blocks:void_to_air_processor"
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+{
+    "name": "monster-hunter-blocks:arenaludrothroyal",
+    "fallback": "minecraft:empty",
+    "elements": [
+        {
+            "weight": 1,
+            "element": {
+                "element_type": "minecraft:single_pool_element",
+                "location": "monster-hunter-blocks:arenaludrothroyal",
+                "projection": "rigid",
+                "processors": "monster-hunter-blocks:arena_processors"
+            }
+        }
+    ]
+}

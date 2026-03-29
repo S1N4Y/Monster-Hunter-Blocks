@@ -3,7 +3,8 @@
 	"package": "com.yanis.monsterhunterblocks.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"ExampleMixin",
+		"StructureFeatureMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
